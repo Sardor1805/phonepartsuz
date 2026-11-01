@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmborPro — Boshqaruv tizimi</title>
+  
+    <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OmborPro">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    /* ==================== RESET & TOKENS (DARK MODE) ==================== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --muted: #94a3b8;
+      --primary: #3b82f6; --primary-dark: #2563eb;
+      --income: #10b981; --expense: #ef4444; --profit: #8b5cf6;
+      --border: #334155; --warning: #f59e0b;
+      --danger-bg: #451a1a; --danger-border: #7f1d1d;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --input-bg: #0f172a; --table-hover: #334155;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
+
+    /* ==================== NAVBAR ==================== */
+    .navbar { background: var(--card); padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--shadow); position: sticky; top: 0; z-index: 100; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+    .nav-brand { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+    .nav-links { display: flex; list-style: none; gap: 0.25rem; flex-wrap: wrap; }
+    .nav-links a { color: var(--muted); text-decoration: none; padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; display: inline-block; }
+    .nav-links a:hover { background: var(--border); color: var(--text); }
+
+    .page { display: none; }
+    .page:target { display: block; }
+    body:not(:has(.page:target)) #dashboard { display: block; }
+    body:has(#kirim:target) .nav-links a[href="#kirim"],
+    body:has(#tahrirlash:target) .nav-links a[href="#tahrirlash"],
+    body:has(#sotuv:target) .nav-links a[href="#sotuv"],
+    body:has(#xizmat:target) .nav-links a[href="#xizmat"],
+    body:has(#chiqim:target) .nav-links a[href="#chiqim"],
+    body:has(#ustama:target) .nav-links a[href="#ustama"],
+    body:has(#mijozlar:target) .nav-links a[href="#mijozlar"],
+    body:has(#tarix:target) .nav-links a[href="#tarix"],
+    body:has(#statistika:target) .nav-links a[href="#statistika"],
+    body:has(#hisobot:target) .nav-links a[href="#hisobot"],
+    body:has(#qidiruv:target) .nav-links a[href="#qidiruv"],
+    body:not(:has(.page:target)) .nav-links a[href="#dashboard"] { background: var(--primary); color: white; }
+
+    /* ==================== MAIN & CARDS ==================== */
+    main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    .page h1 { font-size: 1.75rem; margin-bottom: 1.5rem; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--card); padding: 1.5rem; border-radius: 12px; box-shadow: var(--shadow); border-left: 4px solid var(--primary); border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .stat-card.income { border-left-color: var(--income); }
+    .stat-card.expense { border-left-color: var(--expense); }
+    .stat-card.profit { border-left-color: var(--profit); }
+    .stat-label { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.5rem; font-weight: 500; }
+    .stat-value { font-size: 1.75rem; font-weight: 700; }
+    .stat-value .unit { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+
+    /* ==================== CHART ==================== */
+    .chart-card, .table-wrapper, .form-card, .report-card, .modal-content { background: var(--card); border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+    .chart-card { padding: 1.5rem; }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+    .chart-header h2 { font-size: 1.1rem; font-weight: 600; }
+    .chart-legend { display: flex; gap: 1rem; font-size: 0.85rem; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 0.4rem; color: var(--muted); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.income { background: var(--income); }
+    .dot.expense { background: var(--expense); }
+    .dot.profit { background: var(--profit); }
+    .chart-container { background: var(--bg); border-radius: 8px; padding: 1rem 0.5rem; overflow-x: auto; border: 1px solid var(--border); }
+    .line-chart { width: 100%; height: auto; display: block; }
+    .line-chart .grid-lines line { stroke: var(--border); stroke-width: 1; stroke-dasharray: 4 4; }
+    .line-chart .grid-lines line:first-child, .line-chart .grid-lines line:last-child { stroke: var(--muted); stroke-dasharray: none; opacity: 0.5; }
+    .line-chart .axis-labels-y text, .line-chart .axis-labels-x text { fill: var(--muted); font-size: 13px; font-family: inherit; }
+    .line-chart .line { fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .line-chart .line-income { stroke: var(--income); }
+    .line-chart .line-expense { stroke: var(--expense); }
+    .line-chart .line-profit { stroke: var(--profit); }
+
+    .chart-15, .chart-10, .chart-5 { display: none !important; }
+    @media screen and (min-width: 1025px) { .chart-15 { display: block !important; } }
+    @media screen and (min-width: 641px) and (max-width: 1024px) { .chart-10 { display: block !important; } }
+    @media screen and (max-width: 640px) { .chart-5 { display: block !important; } }
+
+    /* ==================== SEARCH BAR ==================== */
+    .search-bar { margin-bottom: 1rem; }
+    .search-bar input { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; font-family: inherit; background: var(--input-bg); color: var(--text); transition: all 0.2s; }
+    .search-bar input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25); }
+
+    /* ==================== FORMS ==================== */
+    .form-card { padding: 1.5rem; max-width: 600px; display: flex; flex-direction: column; gap: 1rem; }
+    .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+    .form-group label { font-size: 0.875rem; font-weight: 600; }
+    .form-group input, .form-group select, .form-group textarea { padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; font-family: inherit; transition: all 0.2s; background: var(--input-bg); color: var(--text); }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25); }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .hint { font-size: 0.75rem; color: var(--muted); }
+
+    /* ==================== BUTTONS ==================== */
+    .btn-primary, .btn-secondary, .btn-save, .btn-danger { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: var(--border); color: var(--text); border: 1px solid var(--muted); margin-top: 1rem; }
+    .btn-secondary:hover { background: var(--muted); }
+    .btn-save { background: var(--primary); color: white; padding: 0.5rem 1rem; font-size: 0.85rem; }
+    .btn-save:hover { background: var(--primary-dark); }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--expense); border: 1px solid var(--danger-border); padding: 0.5rem 1rem; font-size: 0.85rem; }
+    .btn-danger:hover { background: var(--danger-bg); }
+
+    .alert-info { background: rgba(245, 158, 11, 0.1); border-left: 4px solid var(--warning); padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; color: #fcd34d; }
+
+    /* ==================== TABLE ==================== */
+    .table-wrapper { overflow-x: auto; margin-bottom: 1.5rem; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .data-table thead { background: var(--bg); }
+    .data-table th { text-align: left; padding: 0.875rem 1rem; font-weight: 600; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .data-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+    .data-table tbody tr:hover { background: var(--table-hover); }
+    .data-table td input, .data-table td select { padding: 0.45rem 0.6rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; font-family: inherit; background: var(--input-bg); width: 100%; min-width: 80px; color: var(--text); }
+    .data-table td input:focus, .data-table td select:focus { outline: none; border-color: var(--primary); }
+    .data-table tbody tr.incomplete { background: rgba(239, 68, 68, 0.08); }
+    .data-table tbody tr.incomplete:hover { background: rgba(239, 68, 68, 0.15); }
+    .data-table tbody tr.incomplete td:first-child { border-left: 3px solid var(--expense); font-weight: 600; }
+    .data-table tbody tr.incomplete td:first-child::before { content: "⚠️ "; }
+    .clickable-model { color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 500; }
+    .clickable-model:hover { color: var(--primary-dark); }
+
+    /* ==================== REPORT & MODAL ==================== */
+    .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+    .report-card { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+    .report-card h2 { font-size: 1.05rem; margin-bottom: 0.25rem; }
+
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 1rem; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--card); padding: 2rem; border-radius: 12px; width: 100%; max-width: 800px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); position: relative; }
+    .close-modal { position: absolute; top: 1rem; right: 1.5rem; font-size: 1.5rem; cursor: pointer; color: var(--muted); }
+    .close-modal:hover { color: var(--text); }
+
+    /* ==================== RESPONSIVE ==================== */
+    @media (max-width: 768px) {
+      .navbar { padding: 1rem; gap: 0.5rem; }
+      main { padding: 1rem; }
+      .nav-links { width: 100%; }
+      .form-card { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-brand">📦 OmborPro</div>
+        <button id="installBtn" onclick="installApp()" style="display:none; background:var(--income); color:white; border:none; padding:0.5rem 1rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.85rem;">📲 O'rnatish</button>
+    <ul class="nav-links">
+      
+      <li><a href="#dashboard">Bosh sahifa</a></li>
+      <li><a href="#kirim">Kirim</a></li>
+      <li><a href="#tahrirlash">Tahrirlash</a></li>
+      <li><a href="#sotuv">Sotuv</a></li>
+      <li><a href="#xizmat">Xizmat</a></li>
+      <li><a href="#chiqim">Chiqim</a></li>
+      <li><a href="#ustama">Turlar</a></li>
+      <li><a href="#mijozlar">Mijozlar</a></li>
+      <li><a href="#tarix">Tarix</a></li>
+      <li><a href="#statistika">Statistika</a></li>
+      <li><a href="#hisobot">Hisobot</a></li>
+      <li><a href="#qidiruv">🔍 Qidiruv</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <!-- ==================== BOSH SAHIFA ==================== -->
+    <section id="dashboard" class="page">
+      <h1>Bosh sahifa</h1>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Ombordagi mahsulotlar</div><div class="stat-value" id="statStockCount">0 <span class="unit">dona</span></div></div>
+        <div class="stat-card"><div class="stat-label">Ombor qiymati (tan narx)</div><div class="stat-value" id="statStockValue">0 <span class="unit">so'm</span></div></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card income"><div class="stat-label">Bugungi kirim</div><div class="stat-value" id="statIncome">0 <span class="unit">so'm</span></div></div>
+        <div class="stat-card expense"><div class="stat-label">Bugungi chiqim</div><div class="stat-value" id="statExpense">0 <span class="unit">so'm</span></div></div>
+        <div class="stat-card profit"><div class="stat-label">Bugungi foyda</div><div class="stat-value" id="statProfit">0 <span class="unit">so'm</span></div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <h2>Kirim / Chiqim / Foyda — dinamika</h2>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="dot income"></span> Kirim</span>
+            <span class="legend-item"><span class="dot expense"></span> Chiqim</span>
+            <span class="legend-item"><span class="dot profit"></span> Foyda</span>
+          </div>
+        </div>
+        <div class="chart-container">
+          <svg class="line-chart chart-15" viewBox="0 0 1220 400"><defs><marker id="mk15-i" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8"><circle cx="5" cy="5" r="3.5" fill="#10b981" stroke="#1e293b" stroke-width="1.2"/></marker><marker id="mk15-e" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8"><circle cx="5" cy="5" r="3.5" fill="#ef4444" stroke="#1e293b" stroke-width="1.2"/></marker><marker id="mk15-p" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8"><circle cx="5" cy="5" r="3.5" fill="#8b5cf6" stroke="#1e293b" stroke-width="1.2"/></marker></defs><g class="grid-lines"><line x1="60" y1="40" x2="1160" y2="40"/><line x1="60" y1="100" x2="1160" y2="100"/><line x1="60" y1="160" x2="1160" y2="160"/><line x1="60" y1="220" x2="1160" y2="220"/><line x1="60" y1="280" x2="1160" y2="280"/><line x1="60" y1="340" x2="1160" y2="340"/></g><g class="axis-labels-y"><text x="50" y="45" text-anchor="end">-</text><text x="50" y="105" text-anchor="end">-</text><text x="50" y="165" text-anchor="end">-</text><text x="50" y="225" text-anchor="end">-</text><text x="50" y="285" text-anchor="end">-</text><text x="50" y="345" text-anchor="end">-</text></g><g class="axis-labels-x"><text x="60" y="375" text-anchor="middle">-</text><text x="138.57" y="375" text-anchor="middle">-</text><text x="217.14" y="375" text-anchor="middle">-</text><text x="295.71" y="375" text-anchor="middle">-</text><text x="374.28" y="375" text-anchor="middle">-</text><text x="452.85" y="375" text-anchor="middle">-</text><text x="531.42" y="375" text-anchor="middle">-</text><text x="610" y="375" text-anchor="middle">-</text><text x="688.57" y="375" text-anchor="middle">-</text><text x="767.14" y="375" text-anchor="middle">-</text><text x="845.71" y="375" text-anchor="middle">-</text><text x="924.28" y="375" text-anchor="middle">-</text><text x="1002.85" y="375" text-anchor="middle">-</text><text x="1081.42" y="375" text-anchor="middle">-</text><text x="1160" y="375" text-anchor="middle">-</text></g><polyline class="line line-income" marker-start="url(#mk15-i)" marker-mid="url(#mk15-i)" marker-end="url(#mk15-i)" points="60,340 138.57,340 217.14,340 295.71,340 374.28,340 452.85,340 531.42,340 610,340 688.57,340 767.14,340 845.71,340 924.28,340 1002.85,340 1081.42,340 1160,340"/><polyline class="line line-expense" marker-start="url(#mk15-e)" marker-mid="url(#mk15-e)" marker-end="url(#mk15-e)" points="60,340 138.57,340 217.14,340 295.71,340 374.28,340 452.85,340 531.42,340 610,340 688.57,340 767.14,340 845.71,340 924.28,340 1002.85,340 1081.42,340 1160,340"/><polyline class="line line-profit" marker-start="url(#mk15-p)" marker-mid="url(#mk15-p)" marker-end="url(#mk15-p)" points="60,340 138.57,340 217.14,340 295.71,340 374.28,340 452.85,340 531.42,340 610,340 688.57,340 767.14,340 845.71,340 924.28,340 1002.85,340 1081.42,340 1160,340"/></svg>
+          <svg class="line-chart chart-10" viewBox="0 0 1220 400"><defs><marker id="mk10-i" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8"><circle cx="5" cy="5" r="3.5" fill="#10b981" stroke="#1e293b" stroke-width="1.2"/></marker><marker id="mk10-e" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8"><circle cx="5" cy="5" r="3.5" fill="#ef4444" stroke="#1e293b" stroke-width="1.2"/></marker><marker id="mk10-p" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8"><circle cx="5" cy="5" r="3.5" fill="#8b5cf6" stroke="#1e293b" stroke-width="1.2"/></marker></defs><g class="grid-lines"><line x1="60" y1="40" x2="1160" y2="40"/><line x1="60" y1="100" x2="1160" y2="100"/><line x1="60" y1="160" x2="1160" y2="160"/><line x1="60" y1="220" x2="1160" y2="220"/><line x1="60" y1="280" x2="1160" y2="280"/><line x1="60" y1="340" x2="1160" y2="340"/></g><g class="axis-labels-y"><text x="50" y="45" text-anchor="end">-</text><text x="50" y="105" text-anchor="end">-</text><text x="50" y="165" text-anchor="end">-</text><text x="50" y="225" text-anchor="end">-</text><text x="50" y="285" text-anchor="end">-</text><text x="50" y="345" text-anchor="end">-</text></g><g class="axis-labels-x"><text x="60" y="375" text-anchor="middle">-</text><text x="182.22" y="375" text-anchor="middle">-</text><text x="304.44" y="375" text-anchor="middle">-</text><text x="426.67" y="375" text-anchor="middle">-</text><text x="548.89" y="375" text-anchor="middle">-</text><text x="671.11" y="375" text-anchor="middle">-</text><text x="793.33" y="375" text-anchor="middle">-</text><text x="915.56" y="375" text-anchor="middle">-</text><text x="1037.78" y="375" text-anchor="middle">-</text><text x="1160" y="375" text-anchor="middle">-</text></g><polyline class="line line-income" marker-start="url(#mk10-i)" marker-mid="url(#mk10-i)" marker-end="url(#mk10-i)" points="60,340 182.22,340 304.44,340 426.67,340 548.89,340 671.11,340 793.33,340 915.56,340 1037.78,340 1160,340"/><polyline class="line line-expense" marker-start="url(#mk10-e)" marker-mid="url(#mk10-e)" marker-end="url(#mk10-e)" points="60,340 182.22,340 304.44,340 426.67,340 548.89,340 671.11,340 793.33,340 915.56,340 1037.78,340 1160,340"/><polyline class="line line-profit" marker-start="url(#mk10-p)" marker-mid="url(#mk10-p)" marker-end="url(#mk10-p)" points="60,340 182.22,340 304.44,340 426.67,340 548.89,340 671.11,340 793.33,340 915.56,340 1037.78,340 1160,340"/></svg>
+          <svg class="line-chart chart-5" viewBox="0 0 1220 400"><defs><marker id="mk5-i" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8"><circle cx="5" cy="5" r="3.5" fill="#10b981" stroke="#1e293b" stroke-width="1.2"/></marker><marker id="mk5-e" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8"><circle cx="5" cy="5" r="3.5" fill="#ef4444" stroke="#1e293b" stroke-width="1.2"/></marker><marker id="mk5-p" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8"><circle cx="5" cy="5" r="3.5" fill="#8b5cf6" stroke="#1e293b" stroke-width="1.2"/></marker></defs><g class="grid-lines"><line x1="60" y1="40" x2="1160" y2="40"/><line x1="60" y1="100" x2="1160" y2="100"/><line x1="60" y1="160" x2="1160" y2="160"/><line x1="60" y1="220" x2="1160" y2="220"/><line x1="60" y1="280" x2="1160" y2="280"/><line x1="60" y1="340" x2="1160" y2="340"/></g><g class="axis-labels-y"><text x="50" y="45" text-anchor="end">-</text><text x="50" y="105" text-anchor="end">-</text><text x="50" y="165" text-anchor="end">-</text><text x="50" y="225" text-anchor="end">-</text><text x="50" y="285" text-anchor="end">-</text><text x="50" y="345" text-anchor="end">-</text></g><g class="axis-labels-x"><text x="60" y="375" text-anchor="middle">-</text><text x="335" y="375" text-anchor="middle">-</text><text x="610" y="375" text-anchor="middle">-</text><text x="885" y="375" text-anchor="middle">-</text><text x="1160" y="375" text-anchor="middle">-</text></g><polyline class="line line-income" marker-start="url(#mk5-i)" marker-mid="url(#mk5-i)" marker-end="url(#mk5-i)" points="60,340 335,340 610,340 885,340 1160,340"/><polyline class="line line-expense" marker-start="url(#mk5-e)" marker-mid="url(#mk5-e)" marker-end="url(#mk5-e)" points="60,340 335,340 610,340 885,340 1160,340"/><polyline class="line line-profit" marker-start="url(#mk5-p)" marker-mid="url(#mk5-p)" marker-end="url(#mk5-p)" points="60,340 335,340 610,340 885,340 1160,340"/></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== KIRIM ==================== -->
+    <section id="kirim" class="page">
+      <h1>Kirim — yangi mahsulot</h1>
+      <div class="alert-info">💡 Kirim faqat <strong>model</strong> va <strong>soni</strong> bo'yicha kiritiladi. Narx keyinchalik <em>Tahrirlash</em> bo'limida to'ldiriladi.</div>
+      <form class="form-card" id="kirimForm">
+        <div class="form-group"><label>Model</label><input type="text" id="kirimModel" placeholder="Masalan: C1868" required></div>
+        <div class="form-group"><label>Soni</label><input type="number" id="kirimQty" min="1" placeholder="10" required></div>
+        <button type="submit" class="btn-primary">Kirimni qo'shish</button>
+      </form>
+    </section>
+
+    <!-- ==================== TAHRIRLASH (qidiruvli) ==================== -->
+    <section id="tahrirlash" class="page">
+      <h1>Mahsulotlarni tahrirlash</h1>
+      <div class="alert-info">⚠️ Ma'lumoti to'liq bo'lmagan mahsulotlar <strong>qizil rangda eng yuqorida</strong>. Batafsil ma'lumot uchun model nomini bosing.</div>
+
+      <div class="search-bar">
+        <input type="text" id="tahrirSearch" placeholder="🔍 Model, brend, telefon marka yoki tur bo'yicha qidirish..." autocomplete="off">
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Model</th><th>Brend</th><th>Telefon marka</th><th>Turi</th><th>Soni</th><th>Narx (tan)</th><th>Amal</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== SOTUV ==================== -->
+    <section id="sotuv" class="page">
+      <h1>Sotuv</h1>
+      <form class="form-card" id="sotuvForm">
+        <div class="form-group">
+          <label>Mahsulot modeli</label>
+          <input type="text" id="sotuvModel" list="productList" placeholder="Model nomini yozing yoki tanlang" required autocomplete="off">
+          <datalist id="productList"></datalist>
+        </div>
+        <div class="form-group"><label>Soni</label><input type="number" id="sotuvQty" min="1" value="1" required></div>
+        <div class="form-group">
+          <label>Mijoz (ixtiyoriy)</label>
+          <select id="sotuvCustomer"><option value="">— Mijozsiz (Naqd) —</option></select>
+        </div>
+        <div class="form-group">
+          <label>To'langan summa (bo'sh = to'liq to'landi)</label>
+          <input type="number" id="sotuvPaid" placeholder="Bo'sh qoldiring">
+        </div>
+        <div class="form-group">
+          <label>Narx (ixtiyoriy)</label>
+          <input type="number" id="sotuvPrice" placeholder="Bo'sh = tan narx + ustama">
+          <small class="hint">Narx kiritilmasa — tan narx + ustama summasi qo'llaniladi</small>
+        </div>
+        <div style="background:var(--bg); padding:1rem; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:0.85rem; color:var(--muted);">Kalkulyator:</div>
+          <div style="font-size:1.2rem; font-weight:700;" id="calcTotal">0 so'm</div>
+          <div style="font-size:0.85rem; color:var(--profit);" id="calcProfit">Foyda: 0 so'm</div>
+        </div>
+        <button type="submit" class="btn-primary">Sotish</button>
+      </form>
+    </section>
+
+    <!-- ==================== XIZMAT ==================== -->
+    <section id="xizmat" class="page">
+      <h1>Xizmat sotuvi</h1>
+      <div class="alert-info">💡 Xizmat sotuvida ombordan hech qanday mahsulot ayirilmaydi.</div>
+      <form class="form-card" id="xizmatForm">
+        <div class="form-group"><label>Izoh (qilingan xizmat)</label><textarea id="xizmatDesc" placeholder="Masalan: Ekran almashtirish..." required></textarea></div>
+        <div class="form-group"><label>Narx</label><input type="number" id="xizmatPrice" placeholder="0" required></div>
+        <button type="submit" class="btn-primary">Saqlash</button>
+      </form>
+    </section>
+
+    <!-- ==================== CHIQIM ==================== -->
+    <section id="chiqim" class="page">
+      <h1>Chiqim — kasadan olingan pul</h1>
+      <form class="form-card" id="chiqimForm">
+        <div class="form-group"><label>Izoh</label><textarea id="chiqimDesc" placeholder="Chiqim sababi" required></textarea></div>
+        <div class="form-group"><label>Miqdor</label><input type="number" id="chiqimAmount" placeholder="0" required></div>
+        <button type="submit" class="btn-primary">Saqlash</button>
+      </form>
+    </section>
+
+    <!-- ==================== USTAMA VA TURLAR ==================== -->
+    <section id="ustama" class="page">
+      <h1>Ustama va Turlar</h1>
+      <div class="alert-info">💡 Mahsulot turlarini qo'shing va ularga aniq <strong>ustama summasini (so'mda)</strong> belgilang.</div>
+      <form class="form-card" id="markupForm" style="margin-bottom: 1.5rem;">
+        <h2 style="font-size:1.1rem; margin-bottom:0.5rem;">Yangi tur qo'shish</h2>
+        <div class="form-group"><label>Tur nomi</label><input type="text" id="markupName" placeholder="Masalan: Ekran" required></div>
+        <div class="form-group"><label>Ustama qiymati (so'm)</label><input type="number" id="markupAmount" placeholder="Masalan: 50000" required min="0"></div>
+        <button type="submit" class="btn-primary">Tur qo'shish</button>
+      </form>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Tur nomi</th><th>Ustama qiymati (so'm)</th><th>Amal</th></tr></thead>
+          <tbody id="markupTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== MIJOZLAR ==================== -->
+    <section id="mijozlar" class="page">
+      <h1>Mijozlar va Qarzlar</h1>
+      <form class="form-card" id="customerForm" style="margin-bottom: 1.5rem;">
+        <h2 style="font-size:1.1rem; margin-bottom:0.5rem;">Yangi mijoz</h2>
+        <div class="form-group"><label>Ism-sharif</label><input type="text" id="customerName" placeholder="Masalan: Alisher" required></div>
+        <div class="form-group"><label>Telefon raqam</label><input type="text" id="customerPhone" placeholder="+998 90 123 45 67"></div>
+        <button type="submit" class="btn-primary">Mijoz qo'shish</button>
+      </form>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Mijoz</th><th>Telefon</th><th>Umumiy Qarz</th><th>Amal</th></tr></thead>
+          <tbody id="customerTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== TARIX ==================== -->
+    <section id="tarix" class="page">
+      <h1>Barcha amallar tarixi</h1>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Sana / Vaqt</th><th>Amal turi</th><th>Tavsif</th><th>Summa / Soni</th><th>Amal</th></tr></thead>
+          <tbody id="historyTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== STATISTIKA ==================== -->
+    <section id="statistika" class="page">
+      <h1>Statistika</h1>
+      <div class="report-grid">
+        <div class="report-card">
+          <h2>🏆 Eng ko'p sotilgan modellar</h2>
+          <div class="table-wrapper" style="box-shadow:none; border:none; margin:0;">
+            <table class="data-table">
+              <thead><tr><th>Model</th><th>Sotilgan</th><th>Tushum</th></tr></thead>
+              <tbody id="statModelsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="report-card">
+          <h2>🏢 Brendlar bo'yicha tushum</h2>
+          <div class="table-wrapper" style="box-shadow:none; border:none; margin:0;">
+            <table class="data-table">
+              <thead><tr><th>Brend</th><th>Tushum (so'm)</th></tr></thead>
+              <tbody id="statBrandsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== HISOBOT ==================== -->
+    <section id="hisobot" class="page">
+      <h1>Hisobot</h1>
+
+      <div class="table-wrapper" style="margin-bottom: 1.5rem;">
+        <div class="chart-header" style="padding: 1rem 1rem 0 1rem;">
+          <h2>📅 Bugungi sotuvlar hisoboti</h2>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Model (Kod)</th>
+              <th>Telefon markasi</th>
+              <th>Telefon modeli</th>
+              <th>Soni</th>
+              <th>Hisoblangan narx</th>
+            </tr>
+          </thead>
+          <tbody id="todaySalesTbody">
+            <tr><td colspan="5" style="text-align:center;">Yuklanmoqda...</td></tr>
+          </tbody>
+          <tfoot id="todaySalesTfoot"></tfoot>
+        </table>
+      </div>
+
+      <div class="report-grid">
+        <div class="report-card">
+          <h2>📦 Mahsulot turi bo'yicha</h2>
+          <div class="form-group">
+            <label>Turi</label>
+            <select id="reportType"></select>
+          </div>
+          <button class="btn-primary" id="downloadTypeReport">Yuklab olish (CSV)</button>
+        </div>
+
+        <div class="report-card">
+          <h2>📊 Kunlik tushum / foyda</h2>
+          <div class="form-group">
+            <label>Boshlanish sanasi</label>
+            <input type="date" id="reportFrom">
+          </div>
+          <div class="form-group">
+            <label>Tugash sanasi</label>
+            <input type="date" id="reportTo">
+          </div>
+          <button class="btn-primary" id="downloadDailyReport">Yuklab olish (CSV)</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== QIDIRUV (yangi) ==================== -->
+    <section id="qidiruv" class="page">
+      <h1>🔍 Qidiruv</h1>
+      <div class="alert-info">💡 Model, brend, telefon marka yoki tur bo'yicha qidiring. Narxlar avtomatik hisoblanadi.</div>
+
+      <div class="search-bar">
+        <input type="text" id="globalSearchInput" placeholder="🔍 Qidiruv so'zini kiriting..." autocomplete="off">
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Brend</th>
+              <th>Telefon marka</th>
+              <th>Turi</th>
+              <th>Omborda</th>
+              <th>Tan narx</th>
+              <th>Ustama</th>
+              <th>Sotuv narxi</th>
+            </tr>
+          </thead>
+          <tbody id="searchResultsTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL OYNASI -->
+  <div id="productModal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="document.getElementById('productModal').classList.remove('active')">&times;</span>
+      <h2 id="modalTitle" style="margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">Mahsulot</h2>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Supabase kutubxonasi -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    /* ================================================================
+       OmborPro — to'liq JavaScript (Supabase va mahalliy vaqt bilan)
+       ================================================================ */
+
+    const SUPABASE_URL = 'https://lwiqfnmpcdovcpqqawqf.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3aXFmbm1wY2RvdmNwcXFhd3FmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwMjg5NjEsImV4cCI6MjEwODYwNDk2MX0.XTeywg8R3nF3SpyqJeSCPtC7NTYhv2tU4Yd2JxPqLD4';
+
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    /* ================== UTILS ================== */
+    const fmt = n => new Intl.NumberFormat('uz-UZ').format(Math.round(Number(n) || 0));
+
+    const todayKey = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    function getLocalDateStr(dateStr) {
+      if (!dateStr) return todayKey();
+      const d = new Date(dateStr);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    const esc = s => String(s ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+    /* ================== GLOBAL STATE ================== */
+    let products = [], sales = [], services = [], expenses = [], customers = [], markups = [], incoming = [];
+    let tahrirSearchTerm = '';
+    let globalSearchTerm = '';
+
+    /* ================== MA'LUMOTLARNI YUKLASH ================== */
+    async function loadData() {
+      try {
+        const [p, s, sv, e, c, m, inc] = await Promise.all([
+          db.from('products').select('*').order('updated_at', { ascending: false }),
+          db.from('sales').select('*').order('created_at', { ascending: false }),
+          db.from('services').select('*').order('created_at', { ascending: false }),
+          db.from('expenses').select('*').order('created_at', { ascending: false }),
+          db.from('customers').select('*'),
+          db.from('markups').select('*'),
+          db.from('incoming').select('*').order('created_at', { ascending: false })
+        ]);
+
+        products = (p.data || []).map(x => ({ ...x, phoneMarka: x.phone_marka, costPrice: x.cost_price }));
+        sales = (s.data || []).map(x => ({ ...x, productId: x.product_id, totalRevenue: x.total_revenue, totalCost: x.total_cost, isReturned: x.is_returned, customerId: x.customer_id, paidAmount: x.paid_amount, debtAmount: x.debt_amount }));
+        services = sv.data || [];
+        expenses = e.data || [];
+        customers = c.data || [];
+        markups = m.data || [];
+        incoming = inc.data || [];
+
+        refreshAll();
+      } catch (err) {
+        console.error('Yuklashda xato:', err);
+        alert('Ma\'lumot yuklashda xato: ' + err.message);
+      }
+    }
+
+    /* ================== YORDAMCHI FUNKSIYALAR ================== */
+    function getTypes() { return markups.map(m => m.name); }
+    function getMarkupAmount(type) { const m = markups.find(x => x.name === type); return m ? m.amount : 0; }
+    function isProductComplete(p) { return !!(p.brand && p.phoneMarka && p.type && p.costPrice > 0); }
+
+    function productMatches(p, q) {
+      if (!q) return true;
+      return [p.model, p.brand, p.phoneMarka, p.type]
+        .some(v => String(v || '').toLowerCase().includes(q));
+    }
+
+    /* ================== AMALLAR (CRUD) ================== */
+    async function addIncoming(model, quantity) {
+      const existing = products.find(p => p.model.trim().toLowerCase() === model.trim().toLowerCase());
+      if (existing) {
+        await db.from('products').update({ quantity: existing.quantity + quantity, updated_at: new Date() }).eq('id', existing.id);
+      } else {
+        await db.from('products').insert([{ model: model.trim(), quantity }]);
+      }
+      await db.from('incoming').insert([{ model, quantity, date: todayKey() }]);
+      await loadData();
+    }
+
+    async function updateProduct(id, updates) {
+      await db.from('products').update({
+        brand: updates.brand,
+        phone_marka: updates.phoneMarka,
+        type: updates.type,
+        quantity: updates.quantity,
+        cost_price: updates.costPrice,
+        updated_at: new Date()
+      }).eq('id', id);
+      await loadData();
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm("O'chirilsinmi? Tarixda qoladi, lekin ombordan yo'qoladi.")) return;
+      await db.from('products').delete().eq('id', id);
+      await loadData();
+    }
+
+    async function sellProduct(model, quantity, price, customerId, paidAmount) {
+      const p = products.find(x => x.model.trim().toLowerCase() === model.trim().toLowerCase());
+      if (!p) return { ok: false, msg: `❌ "${model}" topilmadi.` };
+      if (p.quantity < quantity) return { ok: false, msg: `❌ Omborda yetarli emas. Mavjud: ${p.quantity} dona.` };
+      if (!p.costPrice || p.costPrice <= 0) return { ok: false, msg: '⚠️ Tan narx kiritilmagan.' };
+
+      const markupAmount = getMarkupAmount(p.type);
+      const finalPrice = (price && Number(price) > 0) ? Number(price) : (p.costPrice + markupAmount);
+      const totalRevenue = finalPrice * quantity;
+      let paid = (paidAmount === '' || paidAmount === undefined || paidAmount === null) ? totalRevenue : Number(paidAmount);
+      if (paid > totalRevenue) paid = totalRevenue;
+      const debt = totalRevenue - paid;
+
+      await db.from('sales').insert([{
+        product_id: p.id, model: p.model, quantity, price: finalPrice,
+        total_revenue: totalRevenue, total_cost: p.costPrice * quantity,
+        profit: (finalPrice - p.costPrice) * quantity,
+        customer_id: customerId || null, paid_amount: paid, debt_amount: debt,
+        date: todayKey()
+      }]);
+
+      await db.from('products').update({ quantity: p.quantity - quantity, updated_at: new Date() }).eq('id', p.id);
+      await loadData();
+      return { ok: true, msg: `✅ Sotildi: ${p.model} × ${quantity} = ${fmt(totalRevenue)} so'm` };
+    }
+
+    async function returnSale(saleId) {
+      if (!confirm("Sotuvni qaytarmoqchimisiz? Mahsulot omborga qaytadi.")) return;
+      const sale = sales.find(s => s.id === saleId);
+      if (!sale || sale.isReturned) return;
+
+      await db.from('sales').update({ is_returned: true }).eq('id', saleId);
+      const p = products.find(x => x.id === sale.productId);
+      if (p) await db.from('products').update({ quantity: p.quantity + sale.quantity, updated_at: new Date() }).eq('id', p.id);
+      await loadData();
+      alert('✅ Qaytarildi.');
+    }
+
+    async function addService(desc, price) {
+      await db.from('services').insert([{ description: desc, price, date: todayKey() }]);
+      await loadData();
+    }
+
+    async function addExpense(desc, amount) {
+      await db.from('expenses').insert([{ description: desc, amount, date: todayKey() }]);
+      await loadData();
+    }
+
+    async function addCustomer(name, phone) {
+      await db.from('customers').insert([{ name, phone }]);
+      await loadData();
+    }
+
+    async function payDebt(saleId, amount) {
+      const sale = sales.find(s => s.id === saleId);
+      if (!sale) return;
+      let newPaid = (sale.paidAmount || 0) + amount;
+      let newDebt = sale.totalRevenue - newPaid;
+      if (newDebt < 0) { newPaid = sale.totalRevenue; newDebt = 0; }
+      await db.from('sales').update({ paid_amount: newPaid, debt_amount: newDebt }).eq('id', saleId);
+      await loadData();
+    }
+
+    /* ================== STATISTIKA HISOBLASH ================== */
+    function getDayStats(dateStr) {
+      const dSales = sales.filter(s => getLocalDateStr(s.created_at) === dateStr && !s.isReturned);
+      const dServices = services.filter(s => getLocalDateStr(s.created_at) === dateStr);
+      const dExpenses = expenses.filter(e => getLocalDateStr(e.created_at) === dateStr);
+
+      const revenue = dSales.reduce((a, s) => a + Number(s.totalRevenue || 0), 0)
+                    + dServices.reduce((a, s) => a + Number(s.price || 0), 0);
+      const cogs = dSales.reduce((a, s) => a + Number(s.totalCost || 0), 0);
+      const cashOut = dExpenses.reduce((a, e) => a + Number(e.amount || 0), 0);
+
+      // ✅ O'ZGARISH: tan narx (cogs) endi chiqimga qo'shilmaydi.
+      // Chiqim = faqat "Chiqim" bo'limida kiritilgan naqd xarajatlar.
+      // Foyda esa haqiqiy foyda sifatida tan narxni hisobga oladi.
+      return { income: revenue, expense: cashOut, profit: revenue - cogs - cashOut };
+    }
+
+    function getLastNDays(n) {
+      const out = [];
+      const today = new Date();
+      for (let i = n - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        out.push({ date: k, ...getDayStats(k) });
+      }
+      return out;
+    }
+
+    /* ================== RENDER ================== */
+    function renderStats() {
+      const stockCount = products.reduce((a, p) => a + Number(p.quantity || 0), 0);
+      const stockValue = products.reduce((a, p) => a + Number(p.quantity || 0) * Number(p.costPrice || 0), 0);
+      const today = getDayStats(todayKey());
+      document.getElementById('statStockCount').innerHTML = `${fmt(stockCount)} <span class="unit">dona</span>`;
+      document.getElementById('statStockValue').innerHTML = `${fmt(stockValue)} <span class="unit">so'm</span>`;
+      document.getElementById('statIncome').innerHTML = `${fmt(today.income)} <span class="unit">so'm</span>`;
+      document.getElementById('statExpense').innerHTML = `${fmt(today.expense)} <span class="unit">so'm</span>`;
+      document.getElementById('statProfit').innerHTML = `${fmt(today.profit)} <span class="unit">so'm</span>`;
+    }
+
+    function renderChart() {
+      const data = getLastNDays(15);
+      updateChartSVG(document.querySelector('.chart-15'), data.slice(-15));
+      updateChartSVG(document.querySelector('.chart-10'), data.slice(-10));
+      updateChartSVG(document.querySelector('.chart-5'), data.slice(-5));
+    }
+
+    function updateChartSVG(svg, data) {
+      if (!svg || !data.length) return;
+      const xStart = 60, xEnd = 1160, yTop = 40, yBottom = 340;
+      const w = xEnd - xStart, h = yBottom - yTop;
+      const allVals = data.flatMap(d => [d.income, d.expense, Math.abs(d.profit)]);
+      const rawMax = Math.max(...allVals);
+      let step = rawMax === 0 ? 100000 : rawMax > 20e6 ? 5000000 : rawMax > 5e6 ? 2000000 : rawMax > 1e6 ? 500000 : rawMax > 200000 ? 200000 : 100000;
+      const maxVal = Math.max(step, Math.ceil(rawMax / step) * step);
+
+      const yLabels = svg.querySelectorAll('.axis-labels-y text');
+      for (let i = 0; i < yLabels.length; i++) {
+        const v = maxVal * (1 - i / (yLabels.length - 1));
+        yLabels[i].textContent = v === 0 ? '0' : v >= 1e6 ? (v / 1e6).toFixed(1).replace('.0', '') + ' mln' : (v / 1000).toFixed(0) + ' ming';
+      }
+
+      const xLabels = svg.querySelectorAll('.axis-labels-x text');
+      data.forEach((d, i) => {
+        if (xLabels[i]) {
+          const [, m, day] = d.date.split('-');
+          xLabels[i].textContent = `${day}.${m}`;
+          xLabels[i].setAttribute('x', (xStart + (i / Math.max(1, data.length - 1)) * w).toFixed(1));
+        }
+      });
+
+      const mkPoints = key => data.map((d, i) => {
+        const x = xStart + (i / Math.max(1, data.length - 1)) * w;
+        const y = yBottom - Math.min(1, Math.max(0, d[key]) / maxVal) * h;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+
+      svg.querySelector('.line-income').setAttribute('points', mkPoints('income'));
+      svg.querySelector('.line-expense').setAttribute('points', mkPoints('expense'));
+      svg.querySelector('.line-profit').setAttribute('points', mkPoints('profit'));
+    }
+
+    function renderProducts() {
+      const tbody = document.querySelector('#tahrirlash tbody');
+      if (!tbody) return;
+      const types = getTypes();
+
+      const dl = document.getElementById('productList');
+      if (dl) dl.innerHTML = products.map(p => `<option value="${esc(p.model)}">`).join('');
+
+      const q = tahrirSearchTerm.trim().toLowerCase();
+
+      let sorted = [...products].sort((a, b) => {
+        const ai = isProductComplete(a) ? 1 : 0;
+        const bi = isProductComplete(b) ? 1 : 0;
+        if (ai !== bi) return ai - bi;
+        return (new Date(b.updated_at) - new Date(a.updated_at));
+      });
+
+      if (q) sorted = sorted.filter(p => productMatches(p, q));
+
+      if (!sorted.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--muted);">${q ? "🔍 Qidiruv bo'yicha hech narsa topilmadi." : 'Hozircha mahsulotlar yo\'q. "Kirim" bo\'limidan qo\'shing.'}</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = sorted.map(p => {
+        const inc = !isProductComplete(p);
+        return `
+          <tr data-id="${p.id}" class="${inc ? 'incomplete' : ''}">
+            <td><span class="clickable-model" onclick="openProductCard('${p.id}')">${esc(p.model)}</span></td>
+            <td><input type="text" data-field="brand" value="${esc(p.brand || '')}" placeholder="Brend"></td>
+            <td><input type="text" data-field="phoneMarka" value="${esc(p.phoneMarka || '')}" placeholder="Telefon marka"></td>
+            <td>
+              <select data-field="type">
+                <option value="">—</option>
+                ${types.map(t => `<option value="${esc(t)}"${p.type === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}
+              </select>
+            </td>
+            <td><input type="number" data-field="quantity" value="${p.quantity || 0}" min="0"></td>
+            <td><input type="number" data-field="costPrice" value="${p.costPrice || 0}" min="0"></td>
+            <td>
+              <button class="btn-save" data-action="save" style="margin-right:0.5rem;">Saqlash</button>
+              <button class="btn-danger" data-action="delete">O'chirish</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      tbody.querySelectorAll('tr[data-id]').forEach(tr => {
+        tr.querySelector('[data-action="save"]').addEventListener('click', () => {
+          const id = tr.dataset.id;
+          const updates = {};
+          tr.querySelectorAll('[data-field]').forEach(inp => {
+            const f = inp.dataset.field;
+            updates[f] = (f === 'quantity' || f === 'costPrice') ? Number(inp.value) || 0 : inp.value;
+          });
+          updateProduct(id, updates);
+        });
+        tr.querySelector('[data-action="delete"]').addEventListener('click', () => deleteProduct(tr.dataset.id));
+      });
+    }
+
+    function renderGlobalSearch() {
+      const tbody = document.getElementById('searchResultsTbody');
+      if (!tbody) return;
+
+      const q = globalSearchTerm.trim().toLowerCase();
+
+      if (!q) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--muted); padding:1.5rem;">Qidiruv so'zini kiriting — model, brend, marka yoki tur</td></tr>`;
+        return;
+      }
+
+      const found = products.filter(p => productMatches(p, q));
+
+      if (!found.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--muted); padding:1.5rem;">Hech narsa topilmadi</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = found.map(p => {
+        const markup = getMarkupAmount(p.type);
+        const salePrice = Number(p.costPrice || 0) + markup;
+        return `
+          <tr>
+            <td><span class="clickable-model" onclick="openProductCard('${p.id}')">${esc(p.model)}</span></td>
+            <td>${esc(p.brand) || '-'}</td>
+            <td>${esc(p.phoneMarka) || '-'}</td>
+            <td>${esc(p.type) || '-'}</td>
+            <td style="color:${p.quantity > 0 ? 'var(--income)' : 'var(--expense)'}; font-weight:600;">${p.quantity || 0} dona</td>
+            <td>${fmt(p.costPrice)}</td>
+            <td style="color:var(--profit);">${fmt(markup)}</td>
+            <td style="font-weight:600; color:var(--primary);">${fmt(salePrice)}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    window.openProductCard = function(id) {
+      const p = products.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('modalTitle').textContent = p.model;
+
+      const pIncs = incoming.filter(i => i.model && i.model.toLowerCase() === p.model.toLowerCase());
+      const pSls = sales.filter(s => s.productId === id);
+
+      document.getElementById('modalBody').innerHTML = `
+        <div style="margin-bottom:1rem; display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+          <div><strong>Brend:</strong> ${esc(p.brand) || '-'}</div>
+          <div><strong>Marka:</strong> ${esc(p.phoneMarka) || '-'}</div>
+          <div><strong>Turi:</strong> ${esc(p.type) || '-'}</div>
+          <div><strong>Omborda:</strong> ${p.quantity} dona</div>
+          <div><strong>Tan narx:</strong> ${fmt(p.costPrice)} so'm</div>
+        </div>
+        <h3 style="margin:1rem 0 0.5rem; font-size:1rem;">Kirim tarixi (${pIncs.length})</h3>
+        <table class="data-table" style="font-size:0.8rem;">
+          <thead><tr><th>Sana</th><th>Soni</th></tr></thead>
+          <tbody>${pIncs.length ? pIncs.map(i => `<tr><td>${i.date || '-'}</td><td>+${i.quantity}</td></tr>`).join('') : '<tr><td colspan="2">Kirim yo\'q</td></tr>'}</tbody>
+        </table>
+        <h3 style="margin:1rem 0 0.5rem; font-size:1rem;">Sotuv tarixi (${pSls.length})</h3>
+        <table class="data-table" style="font-size:0.8rem;">
+          <thead><tr><th>Sana</th><th>Soni</th><th>Summa</th><th>Holat</th></tr></thead>
+          <tbody>${pSls.length ? pSls.map(s => `<tr><td>${s.date}</td><td>${s.quantity}</td><td>${fmt(s.totalRevenue)}</td><td>${s.isReturned ? 'Qaytarilgan' : 'Sotilgan'}</td></tr>`).join('') : '<tr><td colspan="4">Sotuv yo\'q</td></tr>'}</tbody>
+        </table>
+      `;
+      document.getElementById('productModal').classList.add('active');
+    };
+
+    function renderMarkups() {
+      const tbody = document.getElementById('markupTbody');
+      if (!tbody) return;
+      if (!markups.length) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--muted);">Turlar yo'q</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = markups.map(m => `
+        <tr data-id="${m.id}">
+          <td><input type="text" data-field="name" value="${esc(m.name)}"></td>
+          <td><input type="number" data-field="amount" value="${m.amount}" min="0"></td>
+          <td>
+            <button class="btn-save" data-action="save" style="margin-right:0.5rem;">Saqlash</button>
+            <button class="btn-danger" data-action="delete">O'chirish</button>
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('tr[data-id]').forEach(tr => {
+        const id = tr.dataset.id;
+        tr.querySelector('[data-action="save"]').addEventListener('click', async () => {
+          const newName = tr.querySelector('[data-field="name"]').value.trim();
+          const newAmount = Number(tr.querySelector('[data-field="amount"]').value) || 0;
+          if (!newName) return alert('Tur nomini kiriting');
+          const old = markups.find(m => m.id === id);
+          if (old && old.name !== newName) {
+            for (const p of products) {
+              if (p.type === old.name) {
+                await db.from('products').update({ type: newName }).eq('id', p.id);
+              }
+            }
+          }
+          await db.from('markups').update({ name: newName, amount: newAmount }).eq('id', id);
+          await loadData();
+        });
+        tr.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+          if (!confirm("O'chirmoqchimisiz?")) return;
+          const old = markups.find(m => m.id === id);
+          if (old) {
+            for (const p of products) {
+              if (p.type === old.name) await db.from('products').update({ type: '' }).eq('id', p.id);
+            }
+          }
+          await db.from('markups').delete().eq('id', id);
+          await loadData();
+        });
+      });
+    }
+
+    function renderCustomers() {
+      const select = document.getElementById('sotuvCustomer');
+      if (select) {
+        const cur = select.value;
+        select.innerHTML = `<option value="">— Mijozsiz (Naqd) —</option>` + customers.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+        if (cur) select.value = cur;
+      }
+
+      const tbody = document.getElementById('customerTbody');
+      if (!tbody) return;
+
+      if (!customers.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--muted);">Mijozlar yo'q</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = customers.map(c => {
+        const debt = sales.filter(s => s.customerId === c.id && !s.isReturned).reduce((a, s) => a + Number(s.debtAmount || 0), 0);
+        return `
+          <tr>
+            <td>${esc(c.name)}</td>
+            <td>${esc(c.phone) || '-'}</td>
+            <td style="color:${debt > 0 ? 'var(--expense)' : 'var(--income)'}; font-weight:bold;">${fmt(debt)} so'm</td>
+            <td>${debt > 0 ? `<button class="btn-save" onclick="openPayDebt('${c.id}')">Qarz to'lash</button>` : '—'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    window.openPayDebt = function(customerId) {
+      const cSales = sales.filter(s => s.customerId === customerId && Number(s.debtAmount) > 0 && !s.isReturned);
+      if (!cSales.length) return alert("Qarz yo'q");
+      let msg = "Qaysi sotuv uchun to'lov? Raqamni kiriting:\n";
+      cSales.forEach((s, i) => { msg += `${i + 1}. ${s.model} (${s.date}) — Qarz: ${fmt(s.debtAmount)} so'm\n`; });
+      const choice = prompt(msg);
+      if (!choice) return;
+      const idx = parseInt(choice) - 1;
+      if (isNaN(idx) || !cSales[idx]) return alert("Noto'g'ri tanlov");
+      const amountStr = prompt(`Qancha to'lov? (Qarz: ${fmt(cSales[idx].debtAmount)}):`);
+      if (amountStr) {
+        const amount = Number(amountStr);
+        if (amount > 0) payDebt(cSales[idx].id, amount);
+      }
+    };
+
+    function renderHistory() {
+      const tbody = document.getElementById('historyTbody');
+      if (!tbody) return;
+
+      let hist = [];
+      incoming.forEach(i => hist.push({ date: i.created_at, type: 'Kirim', desc: i.model, val: `+${i.quantity} dona`, color: 'var(--muted)' }));
+      sales.forEach(s => hist.push({
+        date: s.created_at, type: s.isReturned ? 'Qaytarilgan' : 'Sotuv',
+        desc: s.model, val: fmt(s.totalRevenue) + " so'm",
+        id: s.id, isReturned: s.isReturned, isSale: true,
+        color: s.isReturned ? 'var(--muted)' : 'var(--income)'
+      }));
+      services.forEach(s => hist.push({ date: s.created_at, type: 'Xizmat', desc: s.description, val: fmt(s.price) + " so'm", color: 'var(--profit)' }));
+      expenses.forEach(e => hist.push({ date: e.created_at, type: 'Chiqim', desc: e.description, val: '-' + fmt(e.amount) + " so'm", color: 'var(--expense)' }));
+
+      hist.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      if (!hist.length) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted);">Tarix bo'sh</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = hist.slice(0, 100).map(h => {
+        const d = new Date(h.date);
+        const timeStr = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+        return `
+        <tr style="${h.isReturned ? 'opacity:0.5;' : ''}">
+          <td>${timeStr}</td>
+          <td style="color:${h.color}; font-weight:600;">${h.type}</td>
+          <td>${esc(h.desc)}</td>
+          <td style="color:${h.color};">${h.val}</td>
+          <td>${h.isSale && !h.isReturned ? `<button class="btn-danger" onclick="returnSale('${h.id}')">Qaytarish</button>` : ''}</td>
+        </tr>
+      `}).join('');
+    }
+
+    function renderStatistics() {
+      const tModels = document.getElementById('statModelsTbody');
+      const tBrands = document.getElementById('statBrandsTbody');
+      if (!tModels || !tBrands) return;
+
+      const validSales = sales.filter(s => !s.isReturned);
+
+      const modelStats = {};
+      validSales.forEach(s => {
+        if (!modelStats[s.model]) modelStats[s.model] = { qty: 0, rev: 0 };
+        modelStats[s.model].qty += s.quantity;
+        modelStats[s.model].rev += Number(s.totalRevenue);
+      });
+      const sortedModels = Object.entries(modelStats).sort((a, b) => b[1].qty - a[1].qty).slice(0, 10);
+
+      tModels.innerHTML = sortedModels.length
+        ? sortedModels.map(([m, d]) => `<tr><td>${esc(m)}</td><td>${d.qty} dona</td><td>${fmt(d.rev)}</td></tr>`).join('')
+        : `<tr><td colspan="3" style="text-align:center; color:var(--muted);">Ma'lumot yo'q</td></tr>`;
+
+      const brandStats = {};
+      validSales.forEach(s => {
+        const p = products.find(x => x.id === s.productId);
+        const brand = p ? (p.brand || "Noma'lum") : "Noma'lum";
+        if (!brandStats[brand]) brandStats[brand] = 0;
+        brandStats[brand] += Number(s.totalRevenue);
+      });
+      const sortedBrands = Object.entries(brandStats).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+      tBrands.innerHTML = sortedBrands.length
+        ? sortedBrands.map(([b, rev]) => `<tr><td>${esc(b)}</td><td>${fmt(rev)}</td></tr>`).join('')
+        : `<tr><td colspan="2" style="text-align:center; color:var(--muted);">Ma'lumot yo'q</td></tr>`;
+    }
+
+    function updateCalculator() {
+      const model = document.getElementById('sotuvModel').value.trim().toLowerCase();
+      const qty = parseInt(document.getElementById('sotuvQty').value) || 1;
+      const price = document.getElementById('sotuvPrice').value;
+      const p = products.find(x => x.model.toLowerCase() === model);
+      const totalEl = document.getElementById('calcTotal');
+      const profitEl = document.getElementById('calcProfit');
+      if (!p) { totalEl.textContent = '0 so\'m'; profitEl.textContent = 'Model topilmadi'; return; }
+      const finalPrice = price ? Number(price) : (p.costPrice + getMarkupAmount(p.type));
+      totalEl.textContent = `${fmt(finalPrice * qty)} so'm`;
+      profitEl.textContent = `Foyda: ${fmt((finalPrice - p.costPrice) * qty)} so'm`;
+    }
+
+    function updateTypeDropdowns() {
+      const typeSelect = document.getElementById('reportType');
+      if (typeSelect) {
+        const cur = typeSelect.value;
+        typeSelect.innerHTML = getTypes().map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+        if (getTypes().includes(cur)) typeSelect.value = cur;
+      }
+    }
+
+    function downloadCSV(filename, headers, rows) {
+      const csv = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderTodaySalesReport() {
+      const tbody = document.getElementById('todaySalesTbody');
+      const tfoot = document.getElementById('todaySalesTfoot');
+      if (!tbody || !tfoot) return;
+
+      const today = todayKey();
+      const todaySales = sales.filter(s => getLocalDateStr(s.created_at) === today && !s.isReturned);
+
+      let totalSum = 0;
+
+      if (todaySales.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 1rem; color:var(--muted);">Bugun hali sotuv bo'lmadi</td></tr>`;
+        tfoot.innerHTML = '';
+        return;
+      }
+
+      let html = '';
+      todaySales.forEach(s => {
+        const p = products.find(x => x.id === s.productId) || products.find(x => x.model === s.model);
+        const modelCode = p ? p.model : s.model;
+        const brand = p ? (p.brand || '-') : '-';
+        const phoneMarka = p ? (p.phoneMarka || '-') : '-';
+        const costPrice = p ? Number(p.costPrice || 0) : 0;
+
+        const calcPrice = (costPrice + 10000) * s.quantity;
+        totalSum += calcPrice;
+
+        html += `
+          <tr>
+            <td>${esc(modelCode)}</td>
+            <td>${esc(brand)}</td>
+            <td>${esc(phoneMarka)}</td>
+            <td>${s.quantity} dona</td>
+            <td style="font-weight: 600;">${fmt(calcPrice)} so'm</td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+
+      tfoot.innerHTML = `
+        <tr style="background: var(--bg); font-weight: bold; border-top: 2px solid var(--border);">
+          <td colspan="4" style="text-align: right; padding: 1rem; font-size: 1.1rem;">JAMI:</td>
+          <td style="color: var(--primary); font-size: 1.2rem; padding: 1rem;">${fmt(totalSum)} so'm</td>
+        </tr>
+      `;
+    }
+
+    function refreshAll() {
+      renderStats();
+      renderChart();
+      renderProducts();
+      renderMarkups();
+      renderCustomers();
+      renderHistory();
+      renderStatistics();
+      renderTodaySalesReport();
+      updateTypeDropdowns();
+      renderGlobalSearch();
+    }
+
+    /* ================== FORMA HANDLERLARI ================== */
+    function bindForms() {
+      document.getElementById('kirimForm')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const model = document.getElementById('kirimModel').value.trim();
+        const qty = parseInt(document.getElementById('kirimQty').value);
+        if (!model || !qty || qty <= 0) return alert("Model va sonini to'g'ri kiriting");
+        await addIncoming(model, qty);
+        e.target.reset();
+        alert(`✅ Kirim: ${model} × ${qty} dona`);
+      });
+
+      ['sotuvModel', 'sotuvQty', 'sotuvPrice'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateCalculator);
+      });
+
+      document.getElementById('sotuvForm')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const model = document.getElementById('sotuvModel').value.trim();
+        const qty = parseInt(document.getElementById('sotuvQty').value);
+        const price = document.getElementById('sotuvPrice').value;
+        const custId = document.getElementById('sotuvCustomer').value;
+        const paid = document.getElementById('sotuvPaid').value;
+        if (!model || !qty || qty <= 0) return alert("Model va sonini to'g'ri kiriting");
+        const res = await sellProduct(model, qty, price, custId, paid);
+        alert(res.msg);
+        if (res.ok) { e.target.reset(); updateCalculator(); }
+      });
+
+      document.getElementById('xizmatForm')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const desc = document.getElementById('xizmatDesc').value.trim();
+        const price = Number(document.getElementById('xizmatPrice').value);
+        if (!desc || !price) return alert('Izoh va narxni kiriting');
+        await addService(desc, price);
+        e.target.reset();
+        alert('✅ Xizmat saqlandi');
+      });
+
+      document.getElementById('chiqimForm')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const desc = document.getElementById('chiqimDesc').value.trim();
+        const amount = Number(document.getElementById('chiqimAmount').value);
+        if (!desc || !amount) return alert('Izoh va miqdorni kiriting');
+        await addExpense(desc, amount);
+        e.target.reset();
+        alert('✅ Chiqim saqlandi');
+      });
+
+      document.getElementById('markupForm')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const name = document.getElementById('markupName').value.trim();
+        const amount = Number(document.getElementById('markupAmount').value);
+        if (!name) return alert('Tur nomini kiriting');
+        if (markups.some(m => m.name.toLowerCase() === name.toLowerCase())) return alert('Bu tur bor!');
+        await db.from('markups').insert([{ name, amount }]);
+        e.target.reset();
+        await loadData();
+        alert('✅ Tur qo\'shildi');
+      });
+
+      document.getElementById('customerForm')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const name = document.getElementById('customerName').value.trim();
+        const phone = document.getElementById('customerPhone').value.trim();
+        if (!name) return alert('Ismni kiriting');
+        await addCustomer(name, phone);
+        e.target.reset();
+        alert('✅ Mijoz qo\'shildi');
+      });
+
+      document.getElementById('downloadTypeReport')?.addEventListener('click', () => {
+        const type = document.getElementById('reportType').value;
+        if (!type) return alert('Tur tanlanmagan');
+        const prods = products.filter(p => p.type === type);
+        if (!prods.length) return alert(`"${type}" turi bo'yicha mahsulot yo'q`);
+        downloadCSV(
+          `hisobot_${type}_${todayKey()}.csv`,
+          ['Model', 'Brend', 'Telefon marka', 'Turi', 'Soni', 'Tan narx', 'Jami qiymat'],
+          prods.map(p => [p.model, p.brand, p.phoneMarka, p.type, p.quantity, p.costPrice, p.quantity * p.costPrice])
+        );
+      });
+
+      document.getElementById('downloadDailyReport')?.addEventListener('click', () => {
+        const from = document.getElementById('reportFrom').value || todayKey();
+        const to = document.getElementById('reportTo').value || todayKey();
+        const days = [];
+        const cur = new Date(from);
+        const end = new Date(to);
+        while (cur <= end) {
+          const k = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+          const s = getDayStats(k);
+          days.push([k, s.income, s.expense, s.profit]);
+          cur.setDate(cur.getDate() + 1);
+        }
+        downloadCSV(`hisobot_${from}_${to}.csv`, ['Sana', 'Kirim', 'Chiqim', 'Foyda'], days);
+      });
+    }
+
+    /* ================== INIT ================== */
+    document.addEventListener('DOMContentLoaded', () => {
+      bindForms();
+      loadData();
+      window.addEventListener('resize', renderChart);
+
+      // 🔍 Qidiruv event'lari
+      document.getElementById('tahrirSearch')?.addEventListener('input', e => {
+        tahrirSearchTerm = e.target.value;
+        renderProducts();
+      });
+      document.getElementById('globalSearchInput')?.addEventListener('input', e => {
+        globalSearchTerm = e.target.value;
+        renderGlobalSearch();
+      });
+
+      const from = document.getElementById('reportFrom');
+      const to = document.getElementById('reportTo');
+      if (from && to) {
+        const t = new Date();
+        const w = new Date(t);
+        w.setDate(t.getDate() - 7);
+        const formatLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        from.value = formatLocal(w);
+        to.value = formatLocal(t);
+      }
+    });
+  </script>
+
+    <!-- PWA: Service Worker ro'yxatdan o'tkazish + o'rnatish tugmasi -->
+  <script>
+    // Service Worker'ni ro'yxatdan o'tkazish
+    // index.html oxiridagi skriptda bu qatorni o'zgartiring:
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('✅ Service Worker o\'rnatildi:', reg.scope))
+      .catch(err => console.warn('⚠️ SW xato:', err));
+  });
+}
+
+    // "O'rnatish" tugmasi (Android Chrome)
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.getElementById('installBtn');
+      if (btn) btn.style.display = 'inline-block';
+    });
+
+    function installApp() {
+      if (!deferredPrompt) {
+        alert("Bu qurilmada o'rnatish mavjud emas.\n\nTelefonda Chrome menyusidan 'Bosh ekranga qo'shish'ni tanlang.");
+        return;
+      }
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(choice => {
+        if (choice.outcome === 'accepted') {
+          console.log('✅ Foydalanuvchi ilovani o\'rnatdi');
+        }
+        deferredPrompt = null;
+      });
+    }
+
+    window.addEventListener('appinstalled', () => {
+      console.log('✅ Ilova o\'rnatildi');
+      const btn = document.getElementById('installBtn');
+      if (btn) btn.style.display = 'none';
+    });
+  </script>
+
+</body>
+</html>
